@@ -1,0 +1,129 @@
+{
+  "project_name": "SEO Keyword AI Agent (n8n Workflow)",
+  "project_vision": "To transform initial seed keywords into a curated list of 50 high-potential, low-competition keyword candidates, enriched with AI-driven content insights, to achieve first-page Google rankings.",
+  "workflow_overview": "This n8n workflow acts as an intelligent SEO agent, taking a single seed keyword, expanding it using AI, enriching it with real-time search volume and competition data, intelligently filtering and augmenting the list, and finally delivering actionable keyword insights to a Google Sheet.",
+  "phases": [
+    {
+      "phase_name": "Phase 1: Seed & Expand – The Brainstorming Spark",
+      "goal": "To take a single seed keyword and intelligently expand it into a rich array of related terms, ensuring no hidden opportunities are missed.",
+      "nodes": [
+        {
+          "node_number": 1,
+          "node_name": "Start - Seed Keyword Input",
+          "functionality": "Receives the initial seed keyword input (e.g., 'Global Internship').",
+          "reasoning": "Serves as the human-friendly entry point to initiate the keyword research process."
+        },
+        {
+          "node_number": 2,
+          "node_name": "OpenAI Message Model (Keyword Brainstormer)",
+          "functionality": "Generates a broad spectrum of similar and relevant keywords based on the seed keyword.",
+          "reasoning": "Leverages AI to expand beyond basic synonyms, casting a wide net for potential keyword leads."
+        },
+        {
+          "node_number": 3,
+          "node_name": "Code Node (Extract_required_keywords)",
+          "functionality": "Safely retrieves and consolidates the original seed keyword from the trigger and the AI's expanded keyword list, preparing for further processing.",
+          "reasoning": "Ensures the original seed keyword is consistently captured and combines it with AI output for a unified dataset. Includes robust error handling for input retrieval."
+        },
+        {
+          "node_number": 4,
+          "node_name": "Code Node (Extract_Keywords_for_implementation)",
+          "functionality": "Parses the AI-generated keyword content (comma-separated string) into individual keyword items, de-duplicates them, and re-integrates the original seed keyword.",
+          "reasoning": "Transforms raw AI text into structured, actionable individual keyword items, ready for metric enrichment. Ensures data cleanliness by removing duplicates and including the core seed."
+        }
+      ]
+    },
+    {
+      "phase_name": "Phase 2: Qualify & Quantify – The Data Discovery Dive",
+      "goal": "To enrich the expanded keyword list with critical SEO metrics (search volume and competition) to identify truly viable keywords.",
+      "nodes": [
+        {
+          "node_number": 5,
+          "node_name": "Code Node (Batching for Efficiency)",
+          "functionality": "Collects all individual keyword items into a single array, preparing them for a single batch API call.",
+          "reasoning": "Optimizes API usage by converting multiple individual items into a single batch request, reducing API calls and improving efficiency/cost."
+        },
+        {
+          "node_number": 6,
+          "node_name": "Code Node (Guard_Budget)",
+          "functionality": "Enforces a maximum limit of 100 keywords to be sent for API enrichment, throwing an error if exceeded.",
+          "reasoning": "Acts as a critical cost control and resource management gate, preventing excessive API usage and ensuring the workflow stays within budget."
+        },
+        {
+          "node_number": 7,
+          "node_name": "Code Node (Format_api_request)",
+          "functionality": "Formats the collected keywords into the specific JSON request body required by the DataForSEO API.",
+          "reasoning": "Ensures the data payload is correctly structured for seamless communication with the external DataForSEO API."
+        },
+        {
+          "node_number": 8,
+          "node_name": "HTTP Request (Data_For_SEO_API)",
+          "functionality": "Makes a POST request to DataForSEO's `v3/keywords_data/google_ads/search_volume/live` endpoint to retrieve monthly search volume and competition data.",
+          "reasoning": "This is the core data acquisition step, fetching essential real-world SEO metrics to evaluate keyword viability. Targets US English data (location_code: 2840, language_code: 'en')."
+        },
+        {
+          "node_number": 9,
+          "node_name": "Code Node (Filter-1(DataFORSEO))",
+          "functionality": "Parses DataForSEO's batch response, extracts and normalizes competition (to 0-100) and search volume, filters keywords based on `competition_score <= 70` and `monthly_volume >= 10`, and sorts them by `lowest competition` then `highest volume`.",
+          "reasoning": "Crucial for transforming raw API data into actionable metrics. Directly implements the 'first-page potential' goal by aggressively filtering out unviable keywords and prioritizing the most promising ones for the user."
+        }
+      ]
+    },
+    {
+      "phase_name": "Phase 3: Reinforce & Refine – The Intelligent Augmentation",
+      "goal": "To overcome data limitations by intelligently generating more 'first-page potential' keywords and enriching all candidates with strategic insights.",
+      "nodes": [
+        {
+          "node_number": 10,
+          "node_name": "OpenAI Message Model (The Keyword Multiplier)",
+          "functionality": "If the filtered list from DataForSEO is too small, this LLM generates additional similar keywords that are likely to have low competition and decent search volume.",
+          "reasoning": "Ensures the agent can always provide a substantial list of candidates (e.g., 50) even if DataForSEO only returned a few, using AI to intelligently 'fill the gap' with plausible targets."
+        },
+        {
+          "node_number": 11,
+          "node_name": "Code Node (Add_additional_Keywords)",
+          "functionality": "Formats the newly AI-generated keywords into a consistent structure, marking them as 'is_estimated: true'. (Note: The provided code shows hardcoded keywords for demonstration, but in practice, this would parse the actual LLM output from Node 10).",
+          "reasoning": "Prepares the AI-generated keywords for merging and clearly distinguishes them from those with direct DataForSEO validation."
+        },
+        {
+          "node_number": 12,
+          "node_name": "Code Node (Merge+Limit)",
+          "functionality": "Merges the DataForSEO validated keywords with the AI-generated (estimated) keywords, applying estimated volume/competition to AI keywords, and limiting the total to 50.",
+          "reasoning": "Combines the best of both worlds: precise data and intelligent AI expansion, ensuring a comprehensive list of actionable keywords. Prioritizes validated data while using AI to complete the desired number of candidates."
+        },
+        {
+          "node_number": 13,
+          "node_name": "Code Node (Sorting)",
+          "functionality": "Sorts the combined list primarily by showing non-AI (DataForSEO validated) keywords first, then by lower competition, and finally by higher volume.",
+          "reasoning": "Ensures the most reliable and impactful keywords are presented at the top of the final list, providing immediate value to the user."
+        },
+        {
+          "node_number": 14,
+          "node_name": "Basic LLM Chain (Openrouter / Deepseek-r1 - Insight Engine)",
+          "functionality": "For each keyword, this LLM generates a one-sentence justification (why it's good) and a content angle (an idea for a piece of content), outputting in JSON format.",
+          "reasoning": "Elevates the raw keyword data into actionable strategy. Provides quick insights for decision-making and sparks content creation ideas, significantly adding value beyond mere metrics."
+        },
+        {
+          "node_number": 15,
+          "node_name": "Code Node (Final_Selection)",
+          "functionality": "Robustly parses the LLM's output to extract the keyword, justification, and content angle, ensuring valid JSON formatting. It also de-duplicates keywords and limits the final output to 50 unique items.",
+          "reasoning": "Guarantees the final AI-generated insights are correctly extracted, formatted, and free of duplicates, making the output reliable and ready for export. Handles potential LLM parsing imperfections gracefully."
+        }
+      ]
+    },
+    {
+      "phase_name": "Phase 4: Output & Reporting – Delivering Actionable Insights",
+      "goal": "To present the optimized keyword list in an accessible, organized format, ready for immediate implementation.",
+      "nodes": [
+        {
+          "node_number": 16,
+          "node_name": "Google Sheets (Append Mode)",
+          "functionality": "Exports the final list of keywords with all their associated data (volume, competition, justification, content angle) to a Google Sheet.",
+          "reasoning": "Provides a practical, shareable, and widely-used format for the final output. The 'new sheet per seed keyword' (e.g., `[Seed]_YYYYMMDD`) ensures excellent organization and historical tracking for different research initiatives."
+        }
+      ]
+    }
+  ],
+  "author": "Sriashrai Devulapally",
+  "date_created": "July 11, 2025"
+}
